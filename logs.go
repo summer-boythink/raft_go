@@ -79,6 +79,9 @@ func (l *Logs) AppendEntries(prevLogIndex int, prevLogTerm int, entries []LogEnt
 }
 
 func (l *Logs) BatchEntries(startLogIndex int, maxLen int) (prevLogIndex int, prevLogTerm int, entries []LogEntry) {
+	if maxLen == -1 {
+		maxLen = 100
+	}
 	entries = l.store.BatchEntries(startLogIndex-1, maxLen+1)
 	prevLog := entries[0]
 	entries = entries[1:]
