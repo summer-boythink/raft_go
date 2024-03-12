@@ -8,6 +8,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
@@ -30,25 +31,33 @@ var rootCmd = &cobra.Command{
 		nodeAddr := append([]string{local}, peer...)
 		sort.Strings(nodeAddr)
 		u, err := url.Parse(local)
+		if err != nil {
+			log.Fatal(err)
+		}
 		portStr := u.Port()
 		port, err := strconv.Atoi(portStr)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		peers := make(map[int]*raftgo.HttpPeer)
+		peers := make(map[int]raftgo.Peer)
+		var id int
 		for i, addr := range nodeAddr {
 			if addr == local {
-				id := i
+				id = i
 			} else {
 				peers[i] = &raftgo.HttpPeer{Addr: addr}
 			}
 		}
 
-		stateMachine := &raftgo.MemStateMachine{}
+		stateMachine := raftgo.NewMemStateMachine()
 
 		httpServe(
-			raftgo.NewRaft(),
+			raftgo.NewRaft(id, raftgo.NewLogs(raftgo.NewMemStorage(), stateMachine), peers, raftgo.Config{
+				RPCTimeout:        time.Duration(rpcTimeout),
+				HeartbeatTimeout:  time.Duration(heartbeatTimeout),
+				HeartbeatInterval: time.Duration(heartbeatInterval),
+			}),
 			stateMachine,
 			port,
 		)

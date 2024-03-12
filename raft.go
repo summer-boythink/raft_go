@@ -215,7 +215,6 @@ func (r *Raft) leaderSendHeartbeat(nextIndex map[int]int) []Reply {
 		case reply := <-replyCh:
 			replies = append(replies, reply)
 		case <-time.After(time.Duration(r.Config.RPCTimeout) * time.Millisecond):
-			break
 		}
 	}
 

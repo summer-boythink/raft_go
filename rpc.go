@@ -14,11 +14,11 @@ type Peer interface {
 }
 
 type HttpPeer struct {
-	addr string
+	Addr string
 }
 
 func NewHttpPeer(addr string) *HttpPeer {
-	return &HttpPeer{addr: addr}
+	return &HttpPeer{Addr: addr}
 }
 
 func (p *HttpPeer) AppendEntries(aea AppendEntriesArgs, timeout time.Duration) (AppendEntriesReply, error) {
@@ -46,7 +46,7 @@ func (p *HttpPeer) post(method string, data interface{}, timeout time.Duration) 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, "POST", p.addr+"/"+method, bytes.NewBuffer(datas))
+	req, err := http.NewRequestWithContext(ctx, "POST", p.Addr+"/"+method, bytes.NewBuffer(datas))
 	if err != nil {
 		return nil, err
 	}
