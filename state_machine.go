@@ -27,11 +27,14 @@ func NewMemStateMachine() *MemStateMachine {
 	}
 }
 
-func (m *MemStateMachine) Get(key string) (string, bool) {
+func (m *MemStateMachine) Get(key string) string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	value, ok := m.state[key]
-	return value, ok
+	if ok {
+		return value
+	}
+	return ""
 }
 
 func (m *MemStateMachine) Apply(command []byte) {

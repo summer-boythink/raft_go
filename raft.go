@@ -33,7 +33,7 @@ type Raft struct {
 	Logs             *Logs
 	Peers            map[int]Peer
 	Config           Config
-	CommitEmitter    map[int][]func()
+	CommitEmitter    map[int][]chan bool
 }
 
 func NewRaft(id int, logs *Logs, peers map[int]Peer, config Config) *Raft {
@@ -46,7 +46,7 @@ func NewRaft(id int, logs *Logs, peers map[int]Peer, config Config) *Raft {
 		Config:           config,
 		shutdownChannel:  shutdownChannel,
 		heartChannel:     heartChannel,
-		CommitEmitter:    make(map[int][]func()),
+		CommitEmitter:    make(map[int][]chan bool),
 		Logs:             logs,
 		Peers:            peers,
 		heartbeatTimeout: NewResettableTimeout(config.HeartbeatTimeout, heartChannel),
@@ -58,6 +58,61 @@ func NewRaft(id int, logs *Logs, peers map[int]Peer, config Config) *Raft {
 	return r
 }
 
+func (r *Raft) HandleAppendEntries(aea AppendEntriesArgs) AppendEntriesReply {
+	if aea.Term < r.CurrentTerm {
+		return AppendEntriesReply{Term: r.CurrentTerm, Success: false}
+	}
+
+	if aea.Term > r.CurrentTerm {
+		r.CurrentTerm = aea.Term
+		r.Status = Follower
+	}
+
+	if !r.Logs.AppendEntries(aea.PrevLogIndex, aea.PrevLogTerm, aea.Entries, aea.LeaderCommit) {
+		return AppendEntriesReply{Term: r.CurrentTerm, Success: false}
+	}
+	if r.Status != Leader {
+		r.LeaderID = &aea.LeaderID
+	}
+	if r.Status == Follower {
+		r.heartbeatTimeout.Reset()
+	}
+	return AppendEntriesReply{Term: r.CurrentTerm, Success: true}
+}
+
+func (r *Raft) HandleRequestVote(rv RequestVoteArgs) RequestVoteReply {
+	if rv.Term < r.CurrentTerm {
+		return RequestVoteReply{Term: r.CurrentTerm, VoteGranted: false}
+	}
+
+	if rv.Term > r.CurrentTerm {
+		r.CurrentTerm = rv.Term
+		r.Status = Follower
+	}
+
+	if r.VotedFor == nil || *r.VotedFor == rv.CandidateID {
+		if r.Logs.IsUpToDate(rv.LastLogIndex, rv.LastLogTerm) {
+			r.Status = Follower
+			r.VotedFor = &rv.CandidateID
+			return RequestVoteReply{Term: r.CurrentTerm, VoteGranted: true}
+		}
+	}
+	return RequestVoteReply{Term: r.CurrentTerm, VoteGranted: false}
+}
+
+func (r *Raft) HandleAppend(command string) chan bool {
+	logIndex := r.Logs.Append(command, r.CurrentTerm)
+	handleChannel := make(chan bool)
+	if _, ok := r.CommitEmitter[logIndex]; !ok {
+		r.CommitEmitter[logIndex] = make([]chan bool, 0)
+	}
+	r.CommitEmitter[logIndex] = append(r.CommitEmitter[logIndex], handleChannel)
+	return handleChannel
+}
+
+func (r *Raft) IsLeader() bool {
+	return r.ID == *r.LeaderID
+}
 func (r *Raft) run() {
 	for {
 		select {
@@ -123,7 +178,7 @@ func (r *Raft) runCandidate() {
 
 func (r *Raft) runLeader() {
 	log.Printf("entering leader state. leader: %d term: %d\n", r.ID, r.CurrentTerm)
-	r.CommitEmitter = make(map[int][]func())
+	r.CommitEmitter = make(map[int][]chan bool)
 	r.LeaderID = &r.ID
 
 	nextIndex := make(map[int]int)
@@ -162,9 +217,8 @@ func (r *Raft) runLeader() {
 				emitters, ok := r.CommitEmitter[i]
 				if ok {
 					for len(emitters) > 0 {
-						var emitter func()
-						emitter, emitters = emitters[len(emitters)-1], emitters[:len(emitters)-1]
-						emitter()
+						emitters[0] <- true
+						emitters = emitters[1:]
 					}
 				}
 			}

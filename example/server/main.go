@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/http"
 	"net/url"
 	"os"
 	"sort"
@@ -23,6 +22,10 @@ var (
 	heartbeatTimeout  int
 	heartbeatInterval int
 )
+
+type CommandBody struct {
+	command string
+}
 
 var rootCmd = &cobra.Command{
 	Use:   "server",
@@ -67,11 +70,47 @@ var rootCmd = &cobra.Command{
 
 func httpServe(raft *raftgo.Raft, stateMachine *raftgo.MemStateMachine, port int) {
 	r := gin.Default()
-	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "pong",
-		})
+	r.Use(func(ctx *gin.Context) {
+		if raft.LeaderID == nil {
+			ctx.JSON(500, "no leader")
+			return
+		}
+
+		if !raft.IsLeader() {
+			ctx.JSON(400, "it now is no leader")
+			return
+		}
 	})
+	r.POST("/append_entries", func(c *gin.Context) {
+		var body any
+		c.BindJSON(&body)
+		c.JSON(200, raft.HandleAppendEntries(body.(raftgo.AppendEntriesArgs)))
+	})
+
+	r.POST("/request_vote", func(c *gin.Context) {
+		var body any
+		c.BindJSON(&body)
+		c.JSON(200, raft.HandleRequestVote(body.(raftgo.RequestVoteArgs)))
+	})
+
+	r.POST("/append", func(c *gin.Context) {
+		var body any
+		c.BindJSON(&body)
+		commandBase64 := body.(CommandBody).command
+		receiveHandleAppend := raft.HandleAppend(commandBase64)
+		select {
+		case <-receiveHandleAppend:
+			c.JSON(200, map[string]bool{"success": true})
+		case <-time.After(400 * time.Millisecond):
+			c.JSON(200, map[string]bool{"success": false})
+		}
+	})
+
+	r.GET("/get", func(c *gin.Context) {
+		key := c.Query("key")
+		c.JSON(200, map[string]interface{}{"value": stateMachine.Get(key)})
+	})
+
 	r.Run(fmt.Sprintf(":%d", port))
 }
 
