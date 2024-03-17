@@ -1,27 +1,27 @@
 package raftgo
 
 type AppendEntriesArgs struct {
-	Term         int
-	LeaderID     int
-	PrevLogIndex int
-	PrevLogTerm  int
-	Entries      []LogEntry
-	LeaderCommit int
+	Term         int        `json:"term"`
+	LeaderID     int        `json:"leader_id"`
+	PrevLogIndex int        `json:"prev_log_index"`
+	PrevLogTerm  int        `json:"prev_log_term"`
+	Entries      []LogEntry `json:"entries"`
+	LeaderCommit int        `json:"leader_commit"`
 }
 
 type AppendEntriesReply struct {
-	Term    int
-	Success bool
+	Term    int  `json:"term"`
+	Success bool `json:"success"`
 }
 
 type RequestVoteArgs struct {
-	Term         int
-	CandidateID  int
-	LastLogIndex int
-	LastLogTerm  int
+	Term         int `json:"term"`
+	CandidateID  int `json:"candidate_id"`
+	LastLogIndex int `json:"last_log_index"`
+	LastLogTerm  int `json:"last_log_term"`
 }
 
 type RequestVoteReply struct {
-	Term        int
-	VoteGranted bool
+	Term        int  `json:"term"`
+	VoteGranted bool `json:"vote_granted"`
 }

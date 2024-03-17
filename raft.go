@@ -58,6 +58,11 @@ func NewRaft(id int, logs *Logs, peers map[int]Peer, config Config) *Raft {
 	return r
 }
 
+func (r *Raft) SetCurrentTerm(term int) {
+	r.VotedFor = nil
+	r.CurrentTerm = term
+}
+
 func (r *Raft) HandleAppendEntries(aea AppendEntriesArgs) AppendEntriesReply {
 	if aea.Term < r.CurrentTerm {
 		return AppendEntriesReply{Term: r.CurrentTerm, Success: false}
@@ -135,10 +140,10 @@ func (r *Raft) run() {
 func (r *Raft) runFollower() {
 	log.Printf("entering follower state. id: %d term: %d\n", r.ID, r.CurrentTerm)
 	r.heartbeatTimeout.Reset()
-	for r.Status == Leader {
+	for r.Status == Follower {
 		select {
 		case <-r.heartChannel:
-			r.Status = Follower
+			r.Status = Candidate
 			return
 		case <-r.shutdownChannel:
 			return
@@ -275,22 +280,24 @@ func (r *Raft) leaderSendHeartbeat(nextIndex map[int]int) []Reply {
 	return replies
 }
 
-func (r *Raft) electSelf() chan []RequestVoteReply {
+func (r *Raft) electSelf() <-chan []RequestVoteReply {
 	r.CurrentTerm++
 	r.VotedFor = &r.ID
 	last := r.Logs.Last()
 	var votes []RequestVoteReply
-	var res chan []RequestVoteReply
-	for _, peer := range r.Peers {
-		vote, _ := peer.RequestVote(RequestVoteArgs{
-			Term:         r.CurrentTerm,
-			CandidateID:  r.ID,
-			LastLogIndex: last.LogIndex,
-			LastLogTerm:  last.LogTerm,
-		}, time.Duration(r.Config.RPCTimeout)*time.Millisecond)
-		votes = append(votes, vote)
-	}
-	res <- votes
+	var res = make(chan []RequestVoteReply)
+	go func() {
+		for _, peer := range r.Peers {
+			vote, _ := peer.RequestVote(RequestVoteArgs{
+				Term:         r.CurrentTerm,
+				CandidateID:  r.ID,
+				LastLogIndex: last.LogIndex,
+				LastLogTerm:  last.LogTerm,
+			}, time.Duration(r.Config.RPCTimeout)*time.Millisecond)
+			votes = append(votes, vote)
+		}
+		res <- votes
+	}()
 	return res
 }
 

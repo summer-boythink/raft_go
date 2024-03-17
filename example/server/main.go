@@ -1,8 +1,10 @@
 package main
 
 import (
+	// "encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"sort"
@@ -70,30 +72,27 @@ var rootCmd = &cobra.Command{
 
 func httpServe(raft *raftgo.Raft, stateMachine *raftgo.MemStateMachine, port int) {
 	r := gin.Default()
-	r.Use(func(ctx *gin.Context) {
-		if raft.LeaderID == nil {
-			ctx.JSON(500, "no leader")
-			return
-		}
 
-		if !raft.IsLeader() {
-			ctx.JSON(400, "it now is no leader")
-			return
-		}
-	})
 	r.POST("/append_entries", func(c *gin.Context) {
-		var body any
+		var body raftgo.AppendEntriesArgs
 		c.BindJSON(&body)
-		c.JSON(200, raft.HandleAppendEntries(body.(raftgo.AppendEntriesArgs)))
+
+		c.JSON(200, raft.HandleAppendEntries(body))
 	})
 
 	r.POST("/request_vote", func(c *gin.Context) {
-		var body any
-		c.BindJSON(&body)
-		c.JSON(200, raft.HandleRequestVote(body.(raftgo.RequestVoteArgs)))
+		var body raftgo.RequestVoteArgs
+
+		if err := c.BindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(200, raft.HandleRequestVote(body))
 	})
 
 	r.POST("/append", func(c *gin.Context) {
+		checkLeader(c, raft)
+
 		var body any
 		c.BindJSON(&body)
 		commandBase64 := body.(CommandBody).command
@@ -106,12 +105,26 @@ func httpServe(raft *raftgo.Raft, stateMachine *raftgo.MemStateMachine, port int
 		}
 	})
 
-	r.GET("/get", func(c *gin.Context) {
+	r.POST("/get", func(c *gin.Context) {
+		checkLeader(c, raft)
+
 		key := c.Query("key")
 		c.JSON(200, map[string]interface{}{"value": stateMachine.Get(key)})
 	})
 
 	r.Run(fmt.Sprintf(":%d", port))
+}
+
+func checkLeader(c *gin.Context, raft *raftgo.Raft) {
+	if raft.LeaderID == nil {
+		c.JSON(500, "no leader")
+		return
+	}
+
+	if !raft.IsLeader() {
+		c.JSON(400, "it now is no leader")
+		return
+	}
 }
 
 func main() {

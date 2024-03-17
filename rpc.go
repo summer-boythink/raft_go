@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 )
@@ -34,7 +35,21 @@ func (p *HttpPeer) RequestVote(rv RequestVoteArgs, timeout time.Duration) (Reque
 	if err != nil {
 		return RequestVoteReply{}, err
 	}
-	return res.(RequestVoteReply), nil
+	ress := MapToJsonStruct1(res)
+	return ress.(RequestVoteReply), nil
+}
+
+func MapToJsonStruct1(res interface{}) interface{} {
+	jsonBytes, err := json.Marshal(res)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var reply RequestVoteReply
+	err = json.Unmarshal(jsonBytes, &reply)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return reply
 }
 
 func (p *HttpPeer) post(method string, data interface{}, timeout time.Duration) (interface{}, error) {
@@ -60,10 +75,10 @@ func (p *HttpPeer) post(method string, data interface{}, timeout time.Duration) 
 	defer resp.Body.Close()
 
 	var result interface{}
+
 	err = json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
 		return nil, err
 	}
-
 	return result, nil
 }
