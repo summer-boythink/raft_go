@@ -53,7 +53,7 @@ func NewRaft(id int, logs *Logs, peers map[int]Peer, config Config) *Raft {
 	}
 
 	go r.run()
-	r.heartbeatTimeout.Reset()
+	r.heartbeatTimeout.Start()
 
 	return r
 }
@@ -69,7 +69,7 @@ func (r *Raft) HandleAppendEntries(aea AppendEntriesArgs) AppendEntriesReply {
 	}
 
 	if aea.Term > r.CurrentTerm {
-		r.CurrentTerm = aea.Term
+		r.SetCurrentTerm(aea.Term)
 		r.Status = Follower
 	}
 
@@ -91,7 +91,7 @@ func (r *Raft) HandleRequestVote(rv RequestVoteArgs) RequestVoteReply {
 	}
 
 	if rv.Term > r.CurrentTerm {
-		r.CurrentTerm = rv.Term
+		r.SetCurrentTerm(rv.Term)
 		r.Status = Follower
 	}
 
@@ -162,7 +162,7 @@ func (r *Raft) runCandidate() {
 				if vote.Term > r.CurrentTerm {
 					log.Printf("[runCandidate] newer term discovered, fallback to follower\n")
 					r.Status = Follower
-					r.CurrentTerm = vote.Term
+					r.SetCurrentTerm(vote.Term)
 					return
 				}
 				if vote.VoteGranted {
@@ -202,7 +202,7 @@ func (r *Raft) runLeader() {
 				if reply.AReply.Term > r.CurrentTerm {
 					log.Printf("[runLeader] newer term discovered, fallback to follower\n")
 					r.Status = Follower
-					r.CurrentTerm = reply.AReply.Term
+					r.SetCurrentTerm(reply.AReply.Term)
 					return
 				}
 				if reply.AReply.Success {
@@ -281,23 +281,23 @@ func (r *Raft) leaderSendHeartbeat(nextIndex map[int]int) []Reply {
 }
 
 func (r *Raft) electSelf() <-chan []RequestVoteReply {
-	r.CurrentTerm++
+	r.SetCurrentTerm(r.CurrentTerm + 1)
 	r.VotedFor = &r.ID
 	last := r.Logs.Last()
 	var votes []RequestVoteReply
-	var res = make(chan []RequestVoteReply)
-	go func() {
-		for _, peer := range r.Peers {
-			vote, _ := peer.RequestVote(RequestVoteArgs{
-				Term:         r.CurrentTerm,
-				CandidateID:  r.ID,
-				LastLogIndex: last.LogIndex,
-				LastLogTerm:  last.LogTerm,
-			}, time.Duration(r.Config.RPCTimeout)*time.Millisecond)
-			votes = append(votes, vote)
-		}
-		res <- votes
-	}()
+	var res = make(chan []RequestVoteReply, 1)
+	// go func() {
+	for _, peer := range r.Peers {
+		vote, _ := peer.RequestVote(RequestVoteArgs{
+			Term:         r.CurrentTerm,
+			CandidateID:  r.ID,
+			LastLogIndex: last.LogIndex,
+			LastLogTerm:  last.LogTerm,
+		}, time.Duration(r.Config.RPCTimeout)*time.Millisecond)
+		votes = append(votes, vote)
+	}
+	res <- votes
+	// }()
 	return res
 }
 

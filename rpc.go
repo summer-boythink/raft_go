@@ -27,7 +27,8 @@ func (p *HttpPeer) AppendEntries(aea AppendEntriesArgs, timeout time.Duration) (
 	if err != nil {
 		return AppendEntriesReply{}, err
 	}
-	return res.(AppendEntriesReply), nil
+	ress := MapToJsonStruct2(res)
+	return ress.(AppendEntriesReply), nil
 }
 
 func (p *HttpPeer) RequestVote(rv RequestVoteArgs, timeout time.Duration) (RequestVoteReply, error) {
@@ -45,6 +46,19 @@ func MapToJsonStruct1(res interface{}) interface{} {
 		log.Fatal(err)
 	}
 	var reply RequestVoteReply
+	err = json.Unmarshal(jsonBytes, &reply)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return reply
+}
+
+func MapToJsonStruct2(res interface{}) interface{} {
+	jsonBytes, err := json.Marshal(res)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var reply AppendEntriesReply
 	err = json.Unmarshal(jsonBytes, &reply)
 	if err != nil {
 		log.Fatal(err)

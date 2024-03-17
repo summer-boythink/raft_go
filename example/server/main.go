@@ -75,8 +75,10 @@ func httpServe(raft *raftgo.Raft, stateMachine *raftgo.MemStateMachine, port int
 
 	r.POST("/append_entries", func(c *gin.Context) {
 		var body raftgo.AppendEntriesArgs
-		c.BindJSON(&body)
-
+		if err := c.BindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(200, raft.HandleAppendEntries(body))
 	})
 
@@ -132,9 +134,9 @@ func main() {
 	rootCmd.MarkFlagRequired("local")
 	rootCmd.Flags().StringSliceVarP(&peer, "peer", "p", []string{}, "the raft server peer")
 	rootCmd.MarkFlagRequired("peer")
-	rootCmd.Flags().IntVarP(&rpcTimeout, "rpcTimeout", "r", 100, "the raft server local url")
-	rootCmd.Flags().IntVarP(&heartbeatTimeout, "heartbeatTimeout", "", 300, "")
-	rootCmd.Flags().IntVarP(&heartbeatInterval, "heartbeatInterval", "", 100, "")
+	rootCmd.Flags().IntVarP(&rpcTimeout, "rpcTimeout", "r", 1000, "the raft server local url")
+	rootCmd.Flags().IntVarP(&heartbeatTimeout, "heartbeatTimeout", "", 3000, "")
+	rootCmd.Flags().IntVarP(&heartbeatInterval, "heartbeatInterval", "", 1000, "")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
