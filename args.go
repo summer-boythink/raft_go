@@ -24,4 +24,5 @@ type RequestVoteArgs struct {
 type RequestVoteReply struct {
 	Term        int  `json:"term"`
 	VoteGranted bool `json:"vote_granted"`
+	Online      bool `json:"online"`
 }

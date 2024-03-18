@@ -95,9 +95,9 @@ func httpServe(raft *raftgo.Raft, stateMachine *raftgo.MemStateMachine, port int
 	r.POST("/append", func(c *gin.Context) {
 		checkLeader(c, raft)
 
-		var body any
+		var body CommandBody
 		c.BindJSON(&body)
-		commandBase64 := body.(CommandBody).command
+		commandBase64 := body.command
 		receiveHandleAppend := raft.HandleAppend(commandBase64)
 		select {
 		case <-receiveHandleAppend:
@@ -134,9 +134,9 @@ func main() {
 	rootCmd.MarkFlagRequired("local")
 	rootCmd.Flags().StringSliceVarP(&peer, "peer", "p", []string{}, "the raft server peer")
 	rootCmd.MarkFlagRequired("peer")
-	rootCmd.Flags().IntVarP(&rpcTimeout, "rpcTimeout", "r", 1000, "the raft server local url")
-	rootCmd.Flags().IntVarP(&heartbeatTimeout, "heartbeatTimeout", "", 3000, "")
-	rootCmd.Flags().IntVarP(&heartbeatInterval, "heartbeatInterval", "", 1000, "")
+	rootCmd.Flags().IntVarP(&rpcTimeout, "rpcTimeout", "r", 100, "the raft server local url")
+	rootCmd.Flags().IntVarP(&heartbeatTimeout, "heartbeatTimeout", "", 300, "")
+	rootCmd.Flags().IntVarP(&heartbeatInterval, "heartbeatInterval", "", 100, "")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)

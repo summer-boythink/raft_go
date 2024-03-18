@@ -87,7 +87,7 @@ func (r *Raft) HandleAppendEntries(aea AppendEntriesArgs) AppendEntriesReply {
 
 func (r *Raft) HandleRequestVote(rv RequestVoteArgs) RequestVoteReply {
 	if rv.Term < r.CurrentTerm {
-		return RequestVoteReply{Term: r.CurrentTerm, VoteGranted: false}
+		return RequestVoteReply{Term: r.CurrentTerm, VoteGranted: false, Online: true}
 	}
 
 	if rv.Term > r.CurrentTerm {
@@ -99,10 +99,10 @@ func (r *Raft) HandleRequestVote(rv RequestVoteArgs) RequestVoteReply {
 		if r.Logs.IsUpToDate(rv.LastLogIndex, rv.LastLogTerm) {
 			r.Status = Follower
 			r.VotedFor = &rv.CandidateID
-			return RequestVoteReply{Term: r.CurrentTerm, VoteGranted: true}
+			return RequestVoteReply{Term: r.CurrentTerm, VoteGranted: true, Online: true}
 		}
 	}
-	return RequestVoteReply{Term: r.CurrentTerm, VoteGranted: false}
+	return RequestVoteReply{Term: r.CurrentTerm, VoteGranted: false, Online: true}
 }
 
 func (r *Raft) HandleAppend(command string) chan bool {
@@ -256,16 +256,14 @@ func (r *Raft) leaderSendHeartbeat(nextIndex map[int]int) []Reply {
 
 	replyCh := make(chan Reply)
 	for peerID, args := range appendEntriesArgs {
-		go func(peerID int, args AppendEntriesArgs) {
-			reply, err := r.Peers[peerID].AppendEntries(args, time.Duration(r.Config.RPCTimeout)*time.Millisecond)
-			if err == nil {
-				replyCh <- Reply{
-					AReply:    reply,
-					PeerID:    peerID,
-					AppendLen: len(args.Entries),
-				}
+		reply, err := r.Peers[peerID].AppendEntries(args, time.Duration(r.Config.RPCTimeout)*time.Millisecond)
+		if err == nil {
+			replyCh <- Reply{
+				AReply:    reply,
+				PeerID:    peerID,
+				AppendLen: len(args.Entries),
 			}
-		}(peerID, args)
+		}
 	}
 
 	var replies []Reply
@@ -286,7 +284,6 @@ func (r *Raft) electSelf() <-chan []RequestVoteReply {
 	last := r.Logs.Last()
 	var votes []RequestVoteReply
 	var res = make(chan []RequestVoteReply, 1)
-	// go func() {
 	for _, peer := range r.Peers {
 		vote, _ := peer.RequestVote(RequestVoteArgs{
 			Term:         r.CurrentTerm,
@@ -294,10 +291,11 @@ func (r *Raft) electSelf() <-chan []RequestVoteReply {
 			LastLogIndex: last.LogIndex,
 			LastLogTerm:  last.LogTerm,
 		}, time.Duration(r.Config.RPCTimeout)*time.Millisecond)
-		votes = append(votes, vote)
+		if vote.Online {
+			votes = append(votes, vote)
+		}
 	}
 	res <- votes
-	// }()
 	return res
 }
 
