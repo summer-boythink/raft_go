@@ -52,7 +52,7 @@ func NewRaft(id int, logs *Logs, peers map[int]Peer, config Config) *Raft {
 		heartbeatTimeout: NewResettableTimeout(config.HeartbeatTimeout, heartChannel),
 	}
 	go r.run()
-	// r.heartbeatTimeout.Start()
+	r.heartbeatTimeout.Start()
 
 	return r
 }
@@ -137,8 +137,8 @@ func (r *Raft) run() {
 }
 
 func (r *Raft) runFollower() {
-	log.Printf("entering follower state. id: %d term: %d\n", r.ID, r.CurrentTerm)
 	r.heartbeatTimeout.Reset()
+	log.Printf("entering follower state. id: %d term: %d\n", r.ID, r.CurrentTerm)
 	for r.Status == Follower {
 		select {
 		case <-r.heartChannel:
@@ -252,27 +252,19 @@ func (r *Raft) leaderSendHeartbeat(nextIndex map[int]int) []Reply {
 			Entries:      entries,
 		}
 	}
-
-	replyCh := make(chan Reply)
+	var replies []Reply
 	for peerID, args := range appendEntriesArgs {
 		reply, err := r.Peers[peerID].AppendEntries(args, time.Duration(r.Config.RPCTimeout))
+
 		if err == nil {
-			replyCh <- Reply{
+			replies = append(replies, Reply{
 				AReply:    reply,
 				PeerID:    peerID,
 				AppendLen: len(args.Entries),
-			}
+			})
 		}
 	}
-
-	var replies []Reply
-	for range appendEntriesArgs {
-		select {
-		case reply := <-replyCh:
-			replies = append(replies, reply)
-		case <-time.After(time.Duration(r.Config.RPCTimeout)):
-		}
-	}
+	log.Println(replies)
 
 	return replies
 }
@@ -347,6 +339,6 @@ func (rt *ResettableTimeout) Start() {
 }
 
 func (rt *ResettableTimeout) Reset() {
-	rt.Stop()
-	rt.Start()
+	log.Println("reset time")
+	rt.Timer.Reset(rt.Delay + time.Duration(rand.Intn(int(rt.Delay))))
 }

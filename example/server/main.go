@@ -134,8 +134,8 @@ func main() {
 	rootCmd.MarkFlagRequired("local")
 	rootCmd.Flags().StringSliceVarP(&peer, "peer", "p", []string{}, "the raft server peer")
 	rootCmd.MarkFlagRequired("peer")
-	rootCmd.Flags().IntVarP(&rpcTimeout, "rpcTimeout", "r", 100, "the raft server local url")
-	rootCmd.Flags().IntVarP(&heartbeatTimeout, "heartbeatTimeout", "", 1000, "")
+	rootCmd.Flags().IntVarP(&rpcTimeout, "rpcTimeout", "r", 1000, "the raft server local url")
+	rootCmd.Flags().IntVarP(&heartbeatTimeout, "heartbeatTimeout", "", 3000, "")
 	rootCmd.Flags().IntVarP(&heartbeatInterval, "heartbeatInterval", "", 100, "")
 
 	if err := rootCmd.Execute(); err != nil {
