@@ -59,9 +59,9 @@ var rootCmd = &cobra.Command{
 
 		httpServe(
 			raftgo.NewRaft(id, raftgo.NewLogs(raftgo.NewMemStorage(), stateMachine), peers, raftgo.Config{
-				RPCTimeout:        time.Duration(rpcTimeout),
-				HeartbeatTimeout:  time.Duration(heartbeatTimeout),
-				HeartbeatInterval: time.Duration(heartbeatInterval),
+				RPCTimeout:        time.Duration(rpcTimeout) * time.Millisecond,
+				HeartbeatTimeout:  time.Duration(heartbeatTimeout) * time.Millisecond,
+				HeartbeatInterval: time.Duration(heartbeatInterval) * time.Millisecond,
 			}),
 			stateMachine,
 			port,
@@ -135,7 +135,7 @@ func main() {
 	rootCmd.Flags().StringSliceVarP(&peer, "peer", "p", []string{}, "the raft server peer")
 	rootCmd.MarkFlagRequired("peer")
 	rootCmd.Flags().IntVarP(&rpcTimeout, "rpcTimeout", "r", 100, "the raft server local url")
-	rootCmd.Flags().IntVarP(&heartbeatTimeout, "heartbeatTimeout", "", 300, "")
+	rootCmd.Flags().IntVarP(&heartbeatTimeout, "heartbeatTimeout", "", 1000, "")
 	rootCmd.Flags().IntVarP(&heartbeatInterval, "heartbeatInterval", "", 100, "")
 
 	if err := rootCmd.Execute(); err != nil {

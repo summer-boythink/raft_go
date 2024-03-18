@@ -51,9 +51,8 @@ func NewRaft(id int, logs *Logs, peers map[int]Peer, config Config) *Raft {
 		Peers:            peers,
 		heartbeatTimeout: NewResettableTimeout(config.HeartbeatTimeout, heartChannel),
 	}
-
 	go r.run()
-	r.heartbeatTimeout.Start()
+	// r.heartbeatTimeout.Start()
 
 	return r
 }
@@ -174,7 +173,7 @@ func (r *Raft) runCandidate() {
 					return
 				}
 			}
-			time.Sleep(time.Duration(r.Config.HeartbeatInterval) * time.Millisecond)
+			time.Sleep(time.Duration(r.Config.HeartbeatInterval))
 		case <-r.shutdownChannel:
 			return
 		}
@@ -196,7 +195,7 @@ func (r *Raft) runLeader() {
 
 	for r.Status == Leader {
 		select {
-		case <-time.After(time.Duration(r.Config.HeartbeatInterval) * time.Millisecond):
+		case <-time.After(time.Duration(r.Config.HeartbeatInterval)):
 			replies := r.leaderSendHeartbeat(nextIndex)
 			for _, reply := range replies {
 				if reply.AReply.Term > r.CurrentTerm {
@@ -256,7 +255,7 @@ func (r *Raft) leaderSendHeartbeat(nextIndex map[int]int) []Reply {
 
 	replyCh := make(chan Reply)
 	for peerID, args := range appendEntriesArgs {
-		reply, err := r.Peers[peerID].AppendEntries(args, time.Duration(r.Config.RPCTimeout)*time.Millisecond)
+		reply, err := r.Peers[peerID].AppendEntries(args, time.Duration(r.Config.RPCTimeout))
 		if err == nil {
 			replyCh <- Reply{
 				AReply:    reply,
@@ -271,7 +270,7 @@ func (r *Raft) leaderSendHeartbeat(nextIndex map[int]int) []Reply {
 		select {
 		case reply := <-replyCh:
 			replies = append(replies, reply)
-		case <-time.After(time.Duration(r.Config.RPCTimeout) * time.Millisecond):
+		case <-time.After(time.Duration(r.Config.RPCTimeout)):
 		}
 	}
 
@@ -290,7 +289,8 @@ func (r *Raft) electSelf() <-chan []RequestVoteReply {
 			CandidateID:  r.ID,
 			LastLogIndex: last.LogIndex,
 			LastLogTerm:  last.LogTerm,
-		}, time.Duration(r.Config.RPCTimeout)*time.Millisecond)
+		}, time.Duration(r.Config.RPCTimeout))
+
 		if vote.Online {
 			votes = append(votes, vote)
 		}
@@ -341,6 +341,7 @@ func (rt *ResettableTimeout) Stop() {
 
 func (rt *ResettableTimeout) Start() {
 	rt.Timer = time.AfterFunc(rt.Delay+time.Duration(rand.Intn(int(rt.Delay))), func() {
+		log.Println("send heart")
 		rt.Callback <- true
 	})
 }
