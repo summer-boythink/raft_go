@@ -74,7 +74,7 @@ func (p *HttpPeer) post(method string, data interface{}, timeout time.Duration) 
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	log.Println(p.Addr + "/" + method)
+	// log.Println(p.Addr + "/" + method)
 	req, err := http.NewRequestWithContext(ctx, "POST", p.Addr+"/"+method, bytes.NewBuffer(datas))
 	if err != nil {
 		return nil, err

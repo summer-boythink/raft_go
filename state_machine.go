@@ -40,6 +40,7 @@ func (m *MemStateMachine) Get(key string) string {
 func (m *MemStateMachine) Apply(command []byte) {
 	var cmd Command
 	err := json.Unmarshal(command, &cmd)
+	log.Println(string(command))
 	if err != nil {
 		log.Fatalf("Error unmarshalling command: %v", err)
 	}

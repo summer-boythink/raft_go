@@ -212,12 +212,12 @@ func (r *Raft) runLeader() {
 				}
 			}
 			mi := r.majorityIndex(matchIndex)
-			oldCommitIndex := r.Logs.commitIndex
-			if mi > r.Logs.commitIndex {
-				r.Logs.commitIndex = mi
+			oldCommitIndex := r.Logs.GetCommitIndex()
+			if mi > r.Logs.GetCommitIndex() {
+				r.Logs.SetCommitIndex(mi)
 			}
 
-			for i := oldCommitIndex + 1; i <= r.Logs.commitIndex; i++ {
+			for i := oldCommitIndex + 1; i <= r.Logs.GetCommitIndex(); i++ {
 				emitters, ok := r.CommitEmitter[i]
 				if ok {
 					for len(emitters) > 0 {
@@ -246,7 +246,7 @@ func (r *Raft) leaderSendHeartbeat(nextIndex map[int]int) []Reply {
 		appendEntriesArgs[peerID] = AppendEntriesArgs{
 			Term:         r.CurrentTerm,
 			LeaderID:     r.ID,
-			LeaderCommit: r.Logs.commitIndex,
+			LeaderCommit: r.Logs.GetCommitIndex(),
 			PrevLogIndex: logIndex,
 			PrevLogTerm:  logTerm,
 			Entries:      entries,
@@ -264,7 +264,7 @@ func (r *Raft) leaderSendHeartbeat(nextIndex map[int]int) []Reply {
 			})
 		}
 	}
-	log.Println(replies)
+	// log.Println(replies)
 
 	return replies
 }
@@ -333,7 +333,7 @@ func (rt *ResettableTimeout) Stop() {
 
 func (rt *ResettableTimeout) Start() {
 	rt.Timer = time.AfterFunc(rt.Delay+time.Duration(rand.Intn(int(rt.Delay))), func() {
-		log.Println("send heart")
+		// log.Println("send heart")
 		rt.Callback <- true
 	})
 }

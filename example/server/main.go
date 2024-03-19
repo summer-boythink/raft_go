@@ -1,7 +1,7 @@
 package main
 
 import (
-	// "encoding/json"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -24,10 +24,6 @@ var (
 	heartbeatTimeout  int
 	heartbeatInterval int
 )
-
-type CommandBody struct {
-	command string
-}
 
 var rootCmd = &cobra.Command{
 	Use:   "server",
@@ -95,10 +91,14 @@ func httpServe(raft *raftgo.Raft, stateMachine *raftgo.MemStateMachine, port int
 	r.POST("/append", func(c *gin.Context) {
 		checkLeader(c, raft)
 
-		var body CommandBody
+		var body raftgo.Command
 		c.BindJSON(&body)
-		commandBase64 := body.command
-		receiveHandleAppend := raft.HandleAppend(commandBase64)
+		commandBase64, err := json.Marshal(body)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		receiveHandleAppend := raft.HandleAppend(string(commandBase64))
 		select {
 		case <-receiveHandleAppend:
 			c.JSON(200, map[string]bool{"success": true})
@@ -107,11 +107,11 @@ func httpServe(raft *raftgo.Raft, stateMachine *raftgo.MemStateMachine, port int
 		}
 	})
 
-	r.POST("/get", func(c *gin.Context) {
-		checkLeader(c, raft)
+	r.GET("/get", func(c *gin.Context) {
+		// checkLeader(c, raft)
 
 		key := c.Query("key")
-		c.JSON(200, map[string]interface{}{"value": stateMachine.Get(key)})
+		c.JSON(200, map[string]interface{}{"success": true, "value": stateMachine.Get(key)})
 	})
 
 	r.Run(fmt.Sprintf(":%d", port))
@@ -134,8 +134,8 @@ func main() {
 	rootCmd.MarkFlagRequired("local")
 	rootCmd.Flags().StringSliceVarP(&peer, "peer", "p", []string{}, "the raft server peer")
 	rootCmd.MarkFlagRequired("peer")
-	rootCmd.Flags().IntVarP(&rpcTimeout, "rpcTimeout", "r", 1000, "the raft server local url")
-	rootCmd.Flags().IntVarP(&heartbeatTimeout, "heartbeatTimeout", "", 3000, "")
+	rootCmd.Flags().IntVarP(&rpcTimeout, "rpcTimeout", "r", 100, "the raft server local url")
+	rootCmd.Flags().IntVarP(&heartbeatTimeout, "heartbeatTimeout", "", 300, "")
 	rootCmd.Flags().IntVarP(&heartbeatInterval, "heartbeatInterval", "", 100, "")
 
 	if err := rootCmd.Execute(); err != nil {

@@ -1,7 +1,6 @@
 package raftgo
 
 import (
-	"encoding/base64"
 	"sync"
 )
 
@@ -38,7 +37,7 @@ func (l *Logs) SetCommitIndex(index int) {
 	l.commitIndex = index
 	for l.commitIndex > l.lastApplied {
 		l.lastApplied++
-		command, _ := base64.StdEncoding.DecodeString(l.Entry(l.lastApplied).Command)
+		command := []byte(l.Entry(l.lastApplied).Command)
 		l.stateMachine.Apply(command)
 	}
 }

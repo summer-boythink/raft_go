@@ -54,7 +54,11 @@ func (m *MemStorage) TruncateAndAppend(entries []LogEntry) {
 		return
 	}
 	for _, e := range entries {
-		m.entries[e.LogIndex] = e
+		if e.LogIndex > len(m.entries)-1 {
+			m.entries = append(m.entries, e)
+		} else {
+			m.entries[e.LogIndex] = e
+		}
 	}
 	lastId := entries[len(entries)-1].LogIndex
 	m.entries = m.entries[:lastId+1]

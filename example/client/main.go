@@ -10,16 +10,12 @@ import (
 
 	"net/http"
 	"time"
+
+	raftgo "github.com/summer-boythink/raft_go"
 )
 
 type Option struct {
 	Addr string
-}
-
-type Command struct {
-	Type  string `json:"type"`
-	Key   string `json:"key"`
-	Value string `json:"value,omitempty"`
 }
 
 type Response struct {
@@ -73,7 +69,7 @@ func main() {
 }
 
 func set(op Option, key string, value string) {
-	command := Command{Type: "set", Key: key, Value: value}
+	command := raftgo.Command{Type: "set", Key: key, Value: value}
 	send("POST", op.Addr, "/append", command)
 }
 
@@ -82,22 +78,37 @@ func get(op Option, key string) {
 }
 
 func rm(op Option, key string) {
-	command := Command{Type: "rm", Key: key}
+	command := raftgo.Command{Type: "rm", Key: key}
 	send("POST", op.Addr, "/append", command)
 }
 
 func send(method string, addr string, path string, body interface{}) {
 	start := time.Now()
 	jsonBody, _ := json.Marshal(body)
-	resp, err := http.Post(addr+path, "application/json", bytes.NewBuffer(jsonBody))
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
+	if method == "GET" {
+		resp, err := http.Get(addr + path)
+		if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
+		defer resp.Body.Close()
+		data, _ := io.ReadAll(resp.Body)
+		var result Response
+		json.Unmarshal(data, &result)
+		fmt.Println("Response:", result)
+		fmt.Println("Latency:", time.Since(start))
+	} else {
+		resp, err := http.Post(addr+path, "application/json", bytes.NewBuffer(jsonBody))
+		if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
+		defer resp.Body.Close()
+		data, _ := io.ReadAll(resp.Body)
+		var result Response
+		json.Unmarshal(data, &result)
+		fmt.Println("Response:", result)
+		fmt.Println("Latency:", time.Since(start))
 	}
-	defer resp.Body.Close()
-	data, _ := io.ReadAll(resp.Body)
-	var result Response
-	json.Unmarshal(data, &result)
-	fmt.Println("Response:", result)
-	fmt.Println("Latency:", time.Since(start))
+
 }
