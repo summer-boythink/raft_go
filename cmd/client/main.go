@@ -92,11 +92,7 @@ func send(method string, addr string, path string, body interface{}) {
 			return
 		}
 		defer resp.Body.Close()
-		data, _ := io.ReadAll(resp.Body)
-		var result Response
-		json.Unmarshal(data, &result)
-		fmt.Println("Response:", result)
-		fmt.Println("Latency:", time.Since(start))
+		GetResponse(start, resp)
 	} else {
 		resp, err := http.Post(addr+path, "application/json", bytes.NewBuffer(jsonBody))
 		if err != nil {
@@ -104,11 +100,14 @@ func send(method string, addr string, path string, body interface{}) {
 			return
 		}
 		defer resp.Body.Close()
-		data, _ := io.ReadAll(resp.Body)
-		var result Response
-		json.Unmarshal(data, &result)
-		fmt.Println("Response:", result)
-		fmt.Println("Latency:", time.Since(start))
+		GetResponse(start, resp)
 	}
+}
 
+func GetResponse(start time.Time, resp *http.Response) {
+	data, _ := io.ReadAll(resp.Body)
+	var result Response
+	json.Unmarshal(data, &result)
+	fmt.Println("Response:", result)
+	fmt.Println("Latency:", time.Since(start))
 }

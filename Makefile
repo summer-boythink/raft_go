@@ -1,8 +1,8 @@
 all:build
 
 build:fmt
-	go build -o ./build/server ./example/server/
-	go build -o ./build/client ./example/client/
+	go build -o ./build/server ./cmd/server/
+	go build -o ./build/client ./cmd/client/
 
 run-server:build
 	./build/server --local http://127.0.0.1:8080 --peer http://127.0.0.1:8081 --peer http://127.0.0.1:8082

@@ -264,7 +264,6 @@ func (r *Raft) leaderSendHeartbeat(nextIndex map[int]int) []Reply {
 			})
 		}
 	}
-	// log.Println(replies)
 
 	return replies
 }
@@ -333,12 +332,10 @@ func (rt *ResettableTimeout) Stop() {
 
 func (rt *ResettableTimeout) Start() {
 	rt.Timer = time.AfterFunc(rt.Delay+time.Duration(rand.Intn(int(rt.Delay))), func() {
-		// log.Println("send heart")
 		rt.Callback <- true
 	})
 }
 
 func (rt *ResettableTimeout) Reset() {
-	log.Println("reset time")
 	rt.Timer.Reset(rt.Delay + time.Duration(rand.Intn(int(rt.Delay))))
 }

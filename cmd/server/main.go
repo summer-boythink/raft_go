@@ -108,7 +108,6 @@ func httpServe(raft *raftgo.Raft, stateMachine *raftgo.MemStateMachine, port int
 	})
 
 	r.GET("/get", func(c *gin.Context) {
-		// checkLeader(c, raft)
 
 		key := c.Query("key")
 		c.JSON(200, map[string]interface{}{"success": true, "value": stateMachine.Get(key)})
